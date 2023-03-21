@@ -205,6 +205,7 @@ class ElasticJobScaler(Scaler):
             api_version, self._job_name, self._job_uid
         )
 
+        # name为ps或worker
         for name, group_resource in plan.node_group_resources.items():
             resource_spec = ContainerResourceSpec(
                 cpu=group_resource.node_resource.cpu,

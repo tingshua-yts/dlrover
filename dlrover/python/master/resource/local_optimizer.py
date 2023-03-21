@@ -110,22 +110,35 @@ class LocalOptimizer(ResourceOptimizer):
         return plan
 
     def _generate_ps_initial_resource(self):
+        # 从metric中统计node的信息
         node_samples = self._extract_node_resource()
         max_ps_memory = 0
         ps_cpu_requested = 0
         plan = ResourcePlan()
         if len(node_samples[NodeType.PS]) == 0:
             return plan
+
+        # 使用cpu的最大配置为opt值
+        # memory为使用的最大值
         for node in node_samples[NodeType.PS][0]:
             max_ps_memory = max(max_ps_memory, node.used_resource.memory)
             ps_cpu_requested = max(node.config_resource.cpu, ps_cpu_requested)
 
         resource = self._estimate_process_require_resource()
 
+        # limit_cpu应该指的是所有任务一共限制使用的cpu上限
         limit_cpu = self._resource_limits.cpu
+
+        # 得到最多能有的work num，其中ps_cpu为均摊到每个worker上的ps 平均cpu
         max_worker_num = limit_cpu / (resource.ps_cpu + resource.worker_cpu)
+
+        # 得到能够剩余多少cpu给ps使用，
         opt_total_ps_cpu = limit_cpu - max_worker_num * resource.worker_cpu
+
+        # 得到ps的总数
         opt_ps_num = math.ceil(opt_total_ps_cpu / ps_cpu_requested)
+
+        # mem为最大的memory在增加一定的预留
         opt_ps_memory = int(
             max_ps_memory * (1 + self._opt_params.ps_memory_margin_percent)
         )
@@ -144,6 +157,8 @@ class LocalOptimizer(ResourceOptimizer):
     def _estimate_process_require_resource(self):
         node_samples = self._extract_node_resource()
         total_ps_cpus = []
+
+        # avg_ps_cpu 同样为所有used的平均值
         for nodes in node_samples[NodeType.PS]:
             cpu, memory = 0, 0
             for node in nodes:
@@ -158,6 +173,8 @@ class LocalOptimizer(ResourceOptimizer):
             for node in nodes:
                 worker_cpus.append(node.used_resource.cpu)
                 worker_memory = max(worker_memory, node.used_resource.memory)
+
+        # worker cpu为所有worker used的平均值
         worker_cpu = sum(worker_cpus) / len(worker_cpus)
 
         worker_num = 0
@@ -165,6 +182,8 @@ class LocalOptimizer(ResourceOptimizer):
         for node in stats[-1].running_nodes:
             if node.type in [NodeType.CHIEF, NodeType.WORKER]:
                 worker_num += 1
+
+        # 为均摊到每个worker上所是一个的ps cpu量
         ps_cpu_per_process = avg_ps_cpu / worker_num
         resource = ProcessResourceRequirement(
             worker_cpu, ps_cpu_per_process, worker_memory
@@ -174,8 +193,11 @@ class LocalOptimizer(ResourceOptimizer):
 
     def _generate_worker_resoruce(self):
         plan = ResourcePlan()
+        # samples应该是一次的统计样本
         node_samples = self._extract_node_resource()
         max_ps_cpu_util = 0.0
+
+        # 计算ps 的cpu最大利用率
         for nodes in node_samples[NodeType.PS]:
             for node in nodes:
                 cpu_util = node.used_resource.cpu / node.config_resource.cpu
@@ -185,7 +207,11 @@ class LocalOptimizer(ResourceOptimizer):
         if max_ps_cpu_util == 0 or sample_count == 0:
             logger.warning("No CPU utilization of PS")
             return plan
+
+        # 当前的worker num
         opt_worker_num = len(node_samples[NodeType.WORKER][0])
+
+        # 根据ps cpu的最大利用率设置worker扩容的factor
         factor = self._opt_params.ps_cpu_overload_threshold / max_ps_cpu_util
         if factor > 1:
             opt_worker_num = int(opt_worker_num * factor)
@@ -196,8 +222,14 @@ class LocalOptimizer(ResourceOptimizer):
             for node in nodes:
                 worker_cpus.append(node.used_resource.cpu)
                 worker_memory = max(node.used_resource.memory, worker_memory)
+
+        # 平均cpu使用率
         opt_cpu = sum(worker_cpus) / len(worker_cpus)
+
+        # 若小于1则至少取1
         opt_cpu = opt_cpu if opt_cpu > _MIN_NODE_CPU else _MIN_NODE_CPU
+
+        # mem保留一定的magrin
         opt_memory = int(
             (1 + self._opt_params.worker_memory_margin_percent) * worker_memory
         )
@@ -205,6 +237,7 @@ class LocalOptimizer(ResourceOptimizer):
             opt_memory if opt_memory > _MIN_NODE_MEMORY else _MIN_NODE_MEMORY
         )
 
+        # 获取ps resource的使用
         ps_resource = self._compute_total_requested_resource(NodeType.PS)
         remaining_cpu = self._resource_limits.cpu - ps_resource.cpu
         remaining_memory = self._resource_limits.memory - ps_resource.memory
@@ -213,6 +246,8 @@ class LocalOptimizer(ResourceOptimizer):
             remaining_cpu,
             remaining_memory,
         )
+
+        # TODO：不理解这个max的含义
         max_worker_num = min(
             remaining_cpu / opt_cpu, remaining_memory / opt_memory
         )
@@ -233,6 +268,8 @@ class LocalOptimizer(ResourceOptimizer):
                 ps_config_cpu[node.id] = node.config_resource.cpu
         ps_avg_cpus: Dict[int, float] = {}
         hot_ps = []
+
+        # 判断当前ps是否为cpu的热点cpu
         for ps_id, cpu in ps_config_cpu.items():
             avg_cpu = sum(ps_used_cpus[ps_id]) / len(ps_used_cpus[ps_id])
             ps_avg_cpus[ps_id] = avg_cpu
@@ -251,6 +288,8 @@ class LocalOptimizer(ResourceOptimizer):
             tune_factor = min(
                 self._opt_params.node_max_cpu / ps_avg_cpus[ps], tune_factor
             )
+
+        # 提升热点ps的cpu resource
         for node in node_samples[NodeType.PS][0]:
             opt_cpu = round(ps_avg_cpus[node.id] * tune_factor, 1)
             if node.config_resource.cpu >= opt_cpu:
@@ -269,6 +308,7 @@ class LocalOptimizer(ResourceOptimizer):
 
         latest_ps = set()
         latest_worker_num = 0
+        # 获得最近一次统计的worker_num 和ps
         for node in stats[-1].running_nodes:
             if node.type in [NodeType.CHIEF, NodeType.WORKER]:
                 latest_worker_num += 1
@@ -276,6 +316,8 @@ class LocalOptimizer(ResourceOptimizer):
                 latest_ps.add(node.id)
 
         sample_index = max(0, len(stats) - _LATEST_SAMPLE_COUNT)
+
+        # 获取5个统计sample
         for stat in reversed(stats[sample_index:]):
             cur_ps_samples = []
             cur_worker_samples = []

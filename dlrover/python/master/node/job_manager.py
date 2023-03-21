@@ -133,14 +133,23 @@ class JobManager(object):
 
     def start(self):
         self._job_optimizer.update_job_uuid(self._job_args.job_uuid)
+        # 获取job的初始plan，并配置job resource
         self._job_optimizer.init_job_resource(self._job_resource)
         self._adjust_worker_for_estimator()
         self._init_nodes()
+
+        # get plan
         plan = self._create_initial_scale_plan()
+
+        # ElasticJobScaler creates a elastic.iml.github.io/v1alpha1/Scaler
+        # CRD to notify ElasticJob controller to scale Pods of a job.
         self._scaler.scale(plan)
+
         threading.Thread(
             target=self._monitor_nodes, name="node_monitor", daemon=True
         ).start()
+
+        # Monitor the Scaler CRD from users to adjust the job resource
         threading.Thread(
             target=self._monitor_scale_plan_crd,
             name="scaleplan_monitor",
@@ -156,6 +165,7 @@ class JobManager(object):
 
     def _create_initial_scale_plan(self):
         scale_plan = ScalePlan()
+        # _job_resource 来自前面的local optimizer的计算
         scale_plan.node_group_resources = copy.deepcopy(
             self._job_resource.node_group_resources
         )
@@ -572,10 +582,12 @@ class JobManager(object):
                 and time.time() - last_plan_time > opt_interval
                 and not self._ps_manager.exist_migrated_ps_nodes()
             ):
+                # 获取最新的plan
                 plan = self._job_optimizer.get_job_resource_plan()
                 if plan:
                     last_plan_time = time.time()
                 plan = self._skip_ps_plan_if_needed(plan)
+                # 执行plan
                 self._execute_job_optimization_plan(plan)
             time.sleep(30)
 

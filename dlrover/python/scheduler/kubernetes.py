@@ -312,10 +312,14 @@ class K8sJobArgs(JobArgs):
         k8s_client = k8sClient.singleton_instance(
             self.namespace, self.job_name
         )
+
+        # 获得elasticjob
         job = self._retry_to_get_job(k8s_client)
         self.job_uuid = self._get_job_uuid(job)
         if "distributionStrategy" in job["spec"]:
             self.distribution_strategy = job["spec"]["distributionStrategy"]
+
+        # 获得elasticjob中的resourcelimits
         limit_config = job["spec"].get("resourceLimits", {})
         self.resource_limits.cpu = NodeResource.convert_cpu_to_decimal(
             limit_config.get("cpu", DefaultResourceLimits.CPU_LIMIT)
@@ -329,7 +333,7 @@ class K8sJobArgs(JobArgs):
 
         for replica, spec in job["spec"]["replicaSpecs"].items():
             priority = spec.get("priority", "")
-            num = int(spec.get("replicas", 0))
+            num = int(spec.get("replicas", 0)) # replica没有指定则为0
             container = spec["template"]["spec"]["containers"][0]
             resources = container.get("resources", {})
             requests = resources.get("requests", {})
@@ -344,6 +348,7 @@ class K8sJobArgs(JobArgs):
                 if "nvidia.com" in k:
                     gpu_type = k
                     gpu_num = int(v)
+            # cpu/memory/gpu_num没有指定的话都会为0
             group_resource = NodeGroupResource(
                 num,
                 NodeResource(cpu, memory, gpu_type, gpu_num, priority),

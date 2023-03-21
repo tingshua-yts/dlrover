@@ -77,6 +77,8 @@ func (optimizer *JobWorkerResourceOptimizer) Optimize(conf *optconfig.OptimizerC
 			UID: job.UUID,
 		},
 	}
+
+	// 获取metric
 	jobMetrics := &mysql.JobMetrics{}
 	err := optimizer.dataStore.GetData(cond, jobMetrics)
 	if err != nil {
@@ -89,6 +91,7 @@ func (optimizer *JobWorkerResourceOptimizer) Optimize(conf *optconfig.OptimizerC
 		Metrics: utils.ConvertDBJobMetricsToJobMetrics(jobMetrics),
 	}
 
+	// 配置优化算法
 	if conf.OptimizeAlgorithmConfig.CustomizedConfig == nil {
 		conf.OptimizeAlgorithmConfig.CustomizedConfig = make(map[string]string)
 	}

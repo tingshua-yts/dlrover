@@ -133,13 +133,19 @@ class EstimatorExecutor(BaseExecutor):
         config._model_dir = self._model_dir
         params = {}
         training_hooks = [GlobalStepHook()]
+
+        # 创建shard client
         data_shard_client = self.train_dataset.reader.data_shard_client
         if data_shard_client is not None:
             logger.info("appending ElasticDataShardReportHook")
+            # 添加shard report hook
             shard_report_hook = ElasticDataShardReportHook(data_shard_client)
+            # 添加metric report hook
             model_metric_report_hook = ReportModelMetricHook()
             training_hooks.append(shard_report_hook)
             training_hooks.append(model_metric_report_hook)
+
+        # 设置training hooks,包括了GlobalStepHook、ShardReportHook、ReportModelMetricHook
         params[TFConstants.EstimatorTrainingHooks.name] = training_hooks
 
         save_steps = self._task_conf.get(
@@ -149,6 +155,8 @@ class EstimatorExecutor(BaseExecutor):
             TFConstants.SaveSecs.name, TFConstants.SaveSecs()
         )
         logger.info("checkpoint hook %s", self._model_dir)
+
+        # 设置training chiefhook
         params[TFConstants.EstimatorTrainingChiefHooks.name] = [
             CheckpointSaverHook(
                 self._model_dir, save_steps=save_steps, save_secs=save_secs

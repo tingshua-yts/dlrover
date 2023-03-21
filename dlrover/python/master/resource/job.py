@@ -178,6 +178,7 @@ class JobResourceOptimizer(object):
             plan = ResourcePlan.new_default_plan()
         self._job_stage = JobOptStage.WORKER_INITIAL
 
+        # 安装plan更新worker resource
         if (
             _dlrover_context.auto_worker_enabled
             and NodeType.WORKER in plan.node_group_resources
@@ -190,6 +191,7 @@ class JobResourceOptimizer(object):
                 worker_resource.node_resource.cpu,
                 worker_resource.node_resource.memory,
             )
+        # 安装plan更新ps resourc
         if (
             _dlrover_context.auto_ps_enabled
             and NodeType.PS in plan.node_group_resources
@@ -229,7 +231,10 @@ class JobResourceOptimizer(object):
         Args:
             job_resource: node resource configuration of a job.
         """
+        # 从优化器获得ps和worker的resource
         self._init_job_resource_by_optimizer()
+
+        # 将从优化器获得的resource配置job_resource
         job_resource.update_node_group_resource(
             NodeType.WORKER,
             self._worker_resource.count,
@@ -324,13 +329,18 @@ class JobResourceOptimizer(object):
     def get_job_resource_plan(self):
         plan = None
         if self._job_stage == JobOptStage.WORKER_INITIAL:
+            # 先启动一个默认配置
             plan = self._get_worker_resource_at_init_phase()
             self._job_stage = JobOptStage.PS_INITIAL
         elif self._job_stage == JobOptStage.PS_INITIAL:
+            # 调整ps的资源
             plan = self._get_ps_resource_plan()
             self._job_stage = JobOptStage.RUNNING
         elif self._job_stage == JobOptStage.RUNNING:
+            # 先看ps是否要调整
             plan = self._get_ps_resource_plan()
+
+            # 如果不需要则看worker是否需要调整
             if plan.empty():
                 plan = self._get_worker_resource_at_running()
         if not plan or plan.empty():

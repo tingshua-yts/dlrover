@@ -173,7 +173,7 @@ class Node(object):
         self.is_recovered_oom = False
         self.is_released = False
         self.exit_reason = None
-        self.config_resource = config_resource
+        self.config_resource = config_resource # 为optimizer为其配置的资源量
         self.used_resource = NodeResource(0.0, 0.0)
 
     def inc_relaunch_count(self):
