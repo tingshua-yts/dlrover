@@ -63,6 +63,7 @@ class TFKubernetesWorker:
             global_dict["executor"] = self.estimator
             self.estimator.prepare()
             if not self.estimator_server_started:
+                # TODO 启动了一个local 版本的server？
                 self.estimator.start_server()
                 self.estimator_server_started = True
             if self.estimator.task_type == TFConstants.PS():
@@ -71,6 +72,8 @@ class TFKubernetesWorker:
                 run_thread = threading.Thread(target=self.run_worker)
             run_thread.start()
             run_thread.join()
+
+            # 如果是ps变更引起的worker终止，则重新启动
             if not run_thread.is_alive() and global_dict.get(
                 TFConstants.RelaunchForPs.name, TFConstants.RelaunchForPs()
             ):

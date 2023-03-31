@@ -76,12 +76,15 @@ class EstimatorExecutor(BaseExecutor):
         self.prepare()
 
     def prepare(self):
-
+        # 从TF_CONFIG解析出来role、task type、task id等信息
         self.get_cluster_info_by_tf_config()
+        # pass
         self._initialize_estimator_related()
+        # pass
         self._prepare_env()
-
+        # pass
         self._prepare_estimator_class()
+        # 准备train_and_evaluate需要的内容classifier/shard service dataset/train_spec/eval_spec
         self._prepare_estimator()
         self._prepare_incr_saved_model_checkpoint()
 
@@ -114,6 +117,7 @@ class EstimatorExecutor(BaseExecutor):
         )
         return classifier_class
 
+    # 准备train_and_evaluate需要的内容classifier/train_spec/eval_spec
     def _prepare_estimator(self, need_context=False):
         """Preparation for estimator
         + EstimatorSpec
@@ -137,11 +141,13 @@ class EstimatorExecutor(BaseExecutor):
         else:
             self._classifier_class = classifier_class
 
+        # 构建使用shardclient访问的数据集
         self._prepare_train_dataset()
         self._prepare_eval_dataset()
         self._prepare_train_spec()
         self._prepare_eval_spec()
 
+        # 会有share_session_state_in_clusterspec_propagation的校验
         config, params = self._prepare_estimator_config_and_params()
         conf_params = self._task_conf.get("params", {})
         params.update(conf_params)

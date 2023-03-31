@@ -17,7 +17,7 @@ from dlrover.trainer.tensorflow.util.column_info import Column
 
 
 class TrainConf(object):
-    classifier_class = DeepFM
+    classifier_class = DeepFM # 模型名称v
     log_steps = 10
     model_dir = "/nas"
     enable_incr_saved_model = True
