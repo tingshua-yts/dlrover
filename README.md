@@ -91,7 +91,11 @@ By practice, DLRover is an ideal component to build an end-to-end industrial onl
 - High performance extension library for Tensorflow/Pytorch to speed up training
 - ...
 
+## Contributing
+Please refer to the [DEVELOPMENT](docs/developer_guide.md)
 
 ## Quick Start
 
-[Train a TensorFlow Estimator on Aliyun ACK](docs/tutorial/dlrover_cloud.md)
+[Train a TensorFlow Estimator on Aliyun ACK](docs/tutorial/ps_on_cloud.md)
+
+[Train a PyTorch Model on Aliyun ACK](docs/tutorial/torch_allreduce_on_cloud.md)
