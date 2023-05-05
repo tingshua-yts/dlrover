@@ -19,6 +19,7 @@ import tensorflow.compat.v1 as tf
 from tensorflow.core.protobuf import cluster_pb2
 from tensorflow.python.training import server_lib
 
+
 from dlrover.trainer.constants.tf_constants import TFConstants
 from dlrover.trainer.tensorflow.util.tf_env_util import (
     get_tf_config,
@@ -124,12 +125,14 @@ class BaseExecutor:
         if self.task_type != TFConstants.Evaluator():
             logger.info("starting server {}".format(self.address))
             logger.info(self.address_initiated())
+            # 这里使用的是executor的address来创建
             if self.address_initiated():
                 self.server = server_lib.Server(
                     {"localhost": [self.address]}, protocol="grpc"
                 )
                 self.server.start()
             else:
+                #  这里也是在创建server,用的都是默认值 address
                 self.server = server_lib.Server.create_local_server()
                 # grpc address 'grpc://localhost:37229'
                 grpc_address = self.server.target

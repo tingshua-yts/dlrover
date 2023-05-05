@@ -83,6 +83,10 @@ def ck_after_run(self, run_context, run_values):
         )
         # chief can relaun ps
         global_dict[TFConstants.RelaunchForPs.name] = True
+
+
+
+    # 执行checkpoint
     if (
         self._timer.should_trigger_for_step(
             stale_global_step + self._steps_per_run
@@ -175,22 +179,17 @@ def hook_estimator_call_model_fn(params=None):
                 TFConstants.EstimatorEvaluationHooks.name,
                 TFConstants.EstimatorPredictionHooks.name,
             ]
-            stop_at_step_hook = basic_session_run_hooks.StopAtStepHook(
-                num_steps=10
-            )
-            training_hooks = params.get(
-                TFConstants.EstimatorTrainingHooks.name, []
-            )
+            stop_at_step_hook = basic_session_run_hooks.StopAtStepHook( num_steps=10)
+
+            # set training hook
+            training_hooks = params.get(TFConstants.EstimatorTrainingHooks.name, [])
             training_hooks.append(stop_at_step_hook)
             params[TFConstants.EstimatorTrainingHooks.name] = training_hooks
 
-            chief_training_hooks = params.get(
-                TFConstants.EstimatorTrainingChiefHooks.name, []
-            )
+            # set chief hook
+            chief_training_hooks = params.get(  TFConstants.EstimatorTrainingChiefHooks.name, [])
             chief_training_hooks.append(stop_at_step_hook)
-            params[
-                TFConstants.EstimatorTrainingChiefHooks.name
-            ] = chief_training_hooks
+            params[TFConstants.EstimatorTrainingChiefHooks.name  ] = chief_training_hooks
 
             for key in keys:
                 model_fn_results = append_hooks(model_fn_results, key, params)

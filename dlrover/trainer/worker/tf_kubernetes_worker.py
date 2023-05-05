@@ -63,7 +63,7 @@ class TFKubernetesWorker:
             global_dict["executor"] = self.estimator
             self.estimator.prepare()
             if not self.estimator_server_started:
-                # TODO 启动了一个local 版本的server？
+                # TODO 启动了一个local 版本的server？经过咨询是为了解决ray场景IP不稳定的问题
                 self.estimator.start_server()
                 self.estimator_server_started = True
             if self.estimator.task_type == TFConstants.PS():
